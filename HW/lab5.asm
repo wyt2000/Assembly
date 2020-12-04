@@ -1,0 +1,174 @@
+DATA SEGMENT
+
+DATA ENDS
+
+CODE SEGMENT
+    ASSUME CS: CODE, DS: DATA
+    
+PUTCHAR MACRO CHAR           ;putchar CHAR
+    PUSH AX
+    PUSH DX
+    MOV DL, CHAR
+    MOV AH, 02H
+    INT 21H
+    POP DX
+    POP AX
+ENDM            
+
+ERROR MACRO
+    PUTCHAR 10
+    PUTCHAR 'E'
+    PUTCHAR 'R'
+    PUTCHAR 'R'
+    PUTCHAR 'O'
+    PUTCHAR 'R'
+    PUTCHAR 10
+ENDM
+
+PRINT PROC NEAR              ;print DX in decimal
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    CMP DX, 0
+    JGE NOT_NEGETIVE
+    PUTCHAR '-'
+    NOT DX
+    ADD DX, 1
+NOT_NEGETIVE:
+    MOV AX, DX
+    MOV CX, 0
+GET_DIGITS:
+    MOV BX, 10
+    DIV BL
+    ADD AH, '0'
+    PUSH AX
+    ADD CX, 1
+    AND AH, 0
+    CMP AL, 0
+    JE FIND_ZERO
+    JMP GET_DIGITS
+FIND_ZERO:
+    POP AX
+    PUTCHAR AH
+    LOOP FIND_ZERO
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    RET
+PRINT ENDP
+
+READIN PROC NEAR             ;DX = input number, AX = next op
+    PUSH BX
+    MOV DX, 0
+    MOV BX, 10 
+READIN_LOOP:
+    PUSH DX
+    MOV AX, DX
+    MUL BL
+    MOV DX, AX
+    MOV AH, 01H
+    INT 21H
+    MOV AH, 0
+    CMP AL, '0'
+    JL  READIN_FINISH
+    CMP AL, '9'
+    JG  READIN_FINISH
+    SUB AX, '0'
+    ADD DX, AX
+    POP AX
+    JMP READIN_LOOP
+READIN_FINISH:
+    POP DX
+    POP BX
+    RET
+READIN ENDP
+
+CALCULATE PROC NEAR         ;CX = calculate value, SI = depth
+    PUSH AX
+    PUSH BX
+    PUSH DX
+    MOV CX, 0
+    MOV AX, '+'
+CALCULATE_LOOP:
+    CMP AX, '+'
+    JE  CALCULATE_ADD
+    CMP AX, '-'
+    JE  CALCULATE_SUB
+    CMP AX, ')'
+    JE  CALCULATE_FINISH_PAR
+    CMP AX, 0DH
+    JE  CALCULATE_FINISH_ENDL
+    JMP CALCULATE_ERROR
+
+CALCULATE_ADD:
+    CALL READIN
+    ADD CX, DX
+    CMP AX, '('
+    JNE CALCULATE_LOOP
+    PUSH CX
+    ADD SI, 1
+    CALL CALCULATE
+    POP BX
+    ADD CX, BX
+    MOV AH, 01H
+    INT 21H
+    MOV AH, 0
+    JMP CALCULATE_LOOP
+
+CALCULATE_SUB:
+    CALL READIN
+    SUB CX, DX
+    CMP AX, '('
+    JNE  CALCULATE_LOOP
+    PUSH CX
+    ADD SI, 1
+    CALL CALCULATE
+    POP BX
+    SUB BX, CX
+    MOV CX, BX
+    MOV AH, 01H
+    INT 21H
+    MOV AH, 0
+    JMP CALCULATE_LOOP
+    
+CALCULATE_ERROR:
+    ERROR
+    JMP CALCULATE_RETURN
+
+CALCULATE_FINISH_PAR:
+    SUB SI, 1
+    CMP SI, 0
+    JGE CALCULATE_RETURN
+    ERROR
+    JMP CALCULATE_RETURN
+
+CALCULATE_FINISH_ENDL:
+    CMP SI, 0
+    JE CALCULATE_RETURN
+    ERROR
+    JMP CALCULATE_RETURN
+
+CALCULATE_RETURN:
+    POP DX
+    POP BX
+    POP AX
+    RET
+
+CALCULATE ENDP
+
+MAIN:
+    MOV AX, DATA            ;set DS
+    MOV DS, AX
+
+    MOV SI, 0
+    CALL CALCULATE
+    MOV DX, CX
+    CALL PRINT
+
+    MOV AH, 4CH             ;return 0
+    INT 21H
+
+CODE ENDS
+END MAIN
